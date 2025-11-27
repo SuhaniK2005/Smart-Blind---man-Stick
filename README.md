@@ -1,1 +1,0 @@
-# Smart-Blind---man-Stick

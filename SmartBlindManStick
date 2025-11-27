@@ -1,0 +1,109 @@
+// ========================= Pin Definitions =========================
+#define vccPin 4
+#define trigPin 5
+#define echoPin 6
+#define gndPin 7
+#define ledPin 9
+#define buzzerPin 2
+
+// ========================= Global Variables =========================
+long duration = 0;
+int distance = 0;
+
+unsigned long previousLedMillis = 0;
+unsigned long previousBuzzerMillis = 0;
+unsigned long currentMillis = 0;
+
+int ledInterval = 0;
+int buzzerInterval = 0;
+
+bool ledState = LOW;
+bool buzzerState = LOW;
+
+// ========================= Measure Distance =========================
+int measureDistance() {
+  long total = 0;
+  int samples = 3; // Take 3 readings for stability
+  
+  for (int i = 0; i < samples; i++) {
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(trigPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
+
+    duration = pulseIn(echoPin, HIGH, 30000); // 30ms timeout
+    total += (duration / 2) / 29.1;
+    delay(10);
+  }
+
+  return total / samples; // Return averaged distance
+}
+
+// ========================= Task: Trigger Buzzer =========================
+void task_triggerBuzzer() {
+  buzzerInterval = map(distance, 0, 50, 30, 150); // Faster response (max 150ms)
+  
+  if (currentMillis - previousBuzzerMillis >= buzzerInterval) {
+    previousBuzzerMillis = currentMillis;
+    buzzerState = !buzzerState;
+    digitalWrite(buzzerPin, buzzerState);
+  }
+}
+
+// ========================= Task: Trigger LED =========================
+void task_triggerLed() {
+  ledInterval = map(distance, 0, 50, 150, 600); // Faster LED flashing
+  
+  if (currentMillis - previousLedMillis >= ledInterval) {
+    previousLedMillis = currentMillis;
+    ledState = !ledState;
+    digitalWrite(ledPin, ledState);
+  }
+}
+
+// ========================= Stop Alerts =========================
+void stopAlerts() {
+  digitalWrite(buzzerPin, LOW);
+  digitalWrite(ledPin, LOW);
+  ledState = LOW;
+  buzzerState = LOW;
+}
+
+// ========================= Setup =========================
+void setup() {
+  pinMode(vccPin, OUTPUT);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(gndPin, OUTPUT);
+  pinMode(ledPin, OUTPUT);
+  pinMode(buzzerPin, OUTPUT);
+
+  digitalWrite(vccPin, HIGH);
+  digitalWrite(gndPin, LOW);
+  digitalWrite(ledPin, LOW);
+  digitalWrite(buzzerPin, LOW);
+  digitalWrite(trigPin, LOW);
+
+  Serial.begin(9600);
+  delay(1000);
+}
+
+// ========================= Main Loop =========================
+void loop() {
+  currentMillis = millis();
+  distance = measureDistance();
+  
+  Serial.print("Distance: ");
+  Serial.println(distance);
+
+  // Only alert if object is between 5 cm and 50 cm
+  if (distance >= 5 && distance <= 50) {
+    task_triggerBuzzer();
+    task_triggerLed();
+  } else {
+    stopAlerts();
+  }
+
+  delay(50); // Refresh rate (faster response)
+}
